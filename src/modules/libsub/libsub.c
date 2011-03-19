@@ -41,8 +41,8 @@ typedef unsigned short uint16_t;
  #include "../libusb/libusb-win32-src/src/usb.h"
 #endif 
 #include "libsub.h"
-#include <subcfg.h>
-#include <sub_if.h>
+#include "subcfg.h"
+#include "sub_if.h"
 
 /* shared memory definitions*/
 #if defined(_MSC_VER) && _MSC_VER > 800
