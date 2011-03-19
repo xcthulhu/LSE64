@@ -14,6 +14,10 @@ math_la_LIBADD = -lm
 fpga_la_sources = fpga.c
 fpga_la_LDFLAGS = $(common_ldflags)
 
+if HAVE_LIBUSB
+SUBDIRS=libsub
+endif
+
 if HAVE_COMEDI
 COMEDI = comedi.la
 endif

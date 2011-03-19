@@ -42,6 +42,12 @@ AC_CHECK_HEADER([linux/lp.h],
 		 AC_MSG_WARN([** linux/lp.h header file not found - parallel port sequencer support disabled]))
 AM_CONDITIONAL(HAVE_SEQUENCER, [test "x$YES_SEQ" = xyes])
 
+# LibUSB for use with the Xdimax SUB20 USB-SPI controller
+AC_CHECK_HEADER([libusb-1.0/libusb.h],
+	         [YES_LIBUSB="yes"; AC_DEFINE([HAVE_LP_H], [], [Have the libusb-1.0 available])],
+		 AC_MSG_WARN([** libusb-1.0/libusb.h header file not found - Xdimax SUB20 USB-SPI controller support disabled]))
+AM_CONDITIONAL(HAVE_LIBUSB, [test "x$YES_LIBUSB" = xyes])
+
 # Checks for typedefs, structures, and compiler characteristics.
 
 # Checks for library functions.
