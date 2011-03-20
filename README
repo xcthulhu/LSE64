@@ -57,3 +57,15 @@ You can install it globally using the usual command
    Where: 
           • <path_to_tftp> is the path to your local tftp directory (on my system this is /srv/tftp).
           • <ethernet_device> is the ethernet device you are talking to the armadeus with (on my system, this is eth1).  If you don't have a device devoted to this, and you have your armadeus connected to your local area network, can skip the ifconfig command provided that you use your IP rather than 192.168.0.3
+
+3. Xdimax SUB20 USB-SPI Module Support
+
+To compile the Xdimax SUB20 USB-SPI microcontroller module, you will need to install developer support for libusb-1.0:
+
+   > sudo apt-get install libusb-1.0-dev
+
+4. COMEDI Support
+
+To compile support for the comedi module, you will need to install developer support for comedi:
+
+   > sudo apt-get install comedi-dev
