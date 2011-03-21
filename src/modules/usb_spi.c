@@ -30,8 +30,10 @@
     Prints whatever error message this module last set 
 */
 static char spierr[64];
-void SPIerror(void) {
-	printf("%s\n",spierr);
+void
+SPIerror (void)
+{
+  printf ("%s\n", spierr);
 }
 
 /*
@@ -44,11 +46,12 @@ void SPIerror(void) {
 # Channels are interpreted as xdimax SUB20 devices.  Associated with
 # each device is a number representing its configuration, and the number
 # of bits per transaction.
-*/  
+*/
 
-typedef struct {
-	unsigned int conf, bits, baud;
-	sub_handle * sh;
+typedef struct
+{
+  unsigned int conf, bits, baud;
+  sub_handle *sh;
 } channel;
 
 
@@ -60,53 +63,72 @@ typedef struct {
 # by a seperate cleanup function. 
 */
 
-static channel * spi = NULL;
+static channel *spi = NULL;
 static int chanN = 0;
 
-void SPIchan_clear(void) {
-  if (spi != NULL) {
-    int i;
-    for(i = 0; i < chanN; i++) sub_close(spi[i].sh);
-    free(spi);
-  }
+void
+SPIchan_clear (void)
+{
+  if (spi != NULL)
+    {
+      int i;
+      for (i = 0; i < chanN; i++)
+	sub_close (spi[i].sh);
+      free (spi);
+    }
   chanN = 0;
   spi = NULL;
 }
 
-void SPIchan_init(void) {
-  struct usb_device* dev = NULL;
+void
+SPIchan_init (void)
+{
+  struct usb_device *dev = NULL;
   flag = 0;
   // If necessary, clear the channels, free the memory
-  SPIchan_clear();
+  SPIchan_clear ();
 
   // Try to detect devices for channels and open
-  while(dev = sub_find_devices(dev)) {
-    spi = (channel *) realloc(spi,(chanN+1)*sizeof(channel));
-    spi[chanN].sh = sub_open(dev);
-    if (!spi[chanN].sh) {
-      SPIchan_clear();
-      strcpy(spierr, sub_strerror(sub_errno));
-      return;
+  while (dev = sub_find_devices (dev))
+    {
+      spi = (channel *) realloc (spi, (chanN + 1) * sizeof (channel));
+      spi[chanN].sh = sub_open (dev);
+      if (!spi[chanN].sh)
+	{
+	  SPIchan_clear ();
+	  strcpy (spierr, sub_strerror (sub_errno));
+	  return;
+	}
+      spi[chanN].conf = 0;
+      spi[chanN].bits = 0;
+      spi[chanN].baud = 0;
+      chanN += 1;
     }
-    spi[chanN].conf = 0;
-    spi[chanN].bits = 0;
-    spi[chanN].baud = 0;
-    chanN += 1;
-  }
   flag = 1;
 }
 
 
 // We will commonly want to check whether we can access a channel before trying
-int check_chan(int cn) {
-	if (spi == NULL) { strcpy(spierr, "Channels uninitialized"); return 0; }
-	if (cn >= chanN) { 
-		sprintf(spierr, "Channel %d out of range (MAX VALUE: %d)", cn, chanN - 1); 
-		return 0; }
-	if (spi[cn].sh == NULL) { 
-		sprintf(spierr, "Device for channel %d not open", cn); 
-		return 0; }
-	return 1;
+int
+check_chan (int cn)
+{
+  if (spi == NULL)
+    {
+      strcpy (spierr, "Channels uninitialized");
+      return 0;
+    }
+  if (cn >= chanN)
+    {
+      sprintf (spierr, "Channel %d out of range (MAX VALUE: %d)", cn,
+	       chanN - 1);
+      return 0;
+    }
+  if (spi[cn].sh == NULL)
+    {
+      sprintf (spierr, "Device for channel %d not open", cn);
+      return 0;
+    }
+  return 1;
 }
 
 /*
@@ -132,42 +154,65 @@ int check_chan(int cn) {
 # *****           rounded to the next highest multiple of 8 in practice.    *****
 */
 
-void SPIinit(void) {
-	int oldconfig, err; 
-        unsigned int cn = *sp++, id = *sp++, mode = *sp++, bits = *sp++, master = *sp++;
-	int cpol = mode & 1,        // First bit
-            cpha = (mode >> 1) & 1; // Second bit
+void
+SPIinit (void)
+{
+  int oldconfig, err;
+  unsigned int cn = *sp++, id = *sp++, mode = *sp++, bits = *sp++, master =
+    *sp++;
+  int cpol = mode & 1,		// First bit
+    cpha = (mode >> 1) & 1;	// Second bit
 
-	if (!check_chan(cn)) {flag = 0; return;}
-	if (bits > 64) {
-		flag = 0;
-		sprintf(spierr, "Bit rate %d invalid; must be < 64 bits per transaction", bits);
-		return;
-	} else spi[cn].bits = bits;
-        // Minimally our configuration must have SPI_ENABLE
-	spi[cn].conf = SPI_ENABLE;
-	spi[cn].conf |= SPI_MSB_FIRST; // Most significant bit first
+  if (!check_chan (cn))
+    {
+      flag = 0;
+      return;
+    }
+  if (bits > 64)
+    {
+      flag = 0;
+      sprintf (spierr,
+	       "Bit rate %d invalid; must be < 64 bits per transaction",
+	       bits);
+      return;
+    }
+  else
+    spi[cn].bits = bits;
+  // Minimally our configuration must have SPI_ENABLE
+  spi[cn].conf = SPI_ENABLE;
+  spi[cn].conf |= SPI_MSB_FIRST;	// Most significant bit first
 
-	// if the baud rate isn't set, set it to 125kHZ
-	if (!spi[cn].baud) spi[cn].baud |= SPI_CLK_125KHZ;
+  // if the baud rate isn't set, set it to 125kHZ
+  if (!spi[cn].baud)
+    spi[cn].baud |= SPI_CLK_125KHZ;
 
-	// See Wikipedia for the meaning of CPOL and CPHA for SPI buses:
-	// http://en.wikipedia.org/wiki/Serial_Peripheral_Interface_Bus
-	if      (cpol == 0)   spi[cn].conf |= SPI_CPOL_RISE;
-	else if (cpol == 1)   spi[cn].conf |= SPI_CPOL_FALL;
-	if      (cpha == 0)   spi[cn].conf |= SPI_SMPL_SETUP;
-	else if (cpha == 1)   spi[cn].conf |= SPI_SETUP_SMPL;
-	// Master or Slave mode
-	if      (master == 0) spi[cn].conf |= SPI_SLAVE; // BROKEN !!!!
+  // See Wikipedia for the meaning of CPOL and CPHA for SPI buses:
+  // http://en.wikipedia.org/wiki/Serial_Peripheral_Interface_Bus
+  if (cpol == 0)
+    spi[cn].conf |= SPI_CPOL_RISE;
+  else if (cpol == 1)
+    spi[cn].conf |= SPI_CPOL_FALL;
+  if (cpha == 0)
+    spi[cn].conf |= SPI_SMPL_SETUP;
+  else if (cpha == 1)
+    spi[cn].conf |= SPI_SETUP_SMPL;
+  // Master or Slave mode
+  if (master == 0)
+    spi[cn].conf |= SPI_SLAVE;	// BROKEN !!!!
 
-	if(!(err = sub_spi_config(spi[cn].sh, spi[cn].conf | spi[cn].baud, &oldconfig))) {
-		flag = 1;
-		return;
-	} else {
-		flag = 0;
-		strcpy(spierr, sub_strerror(err));
-		return;
-	}
+  if (!
+      (err =
+       sub_spi_config (spi[cn].sh, spi[cn].conf | spi[cn].baud, &oldconfig)))
+    {
+      flag = 1;
+      return;
+    }
+  else
+    {
+      flag = 0;
+      strcpy (spierr, sub_strerror (err));
+      return;
+    }
 }
 
 /*
@@ -179,27 +224,44 @@ void SPIinit(void) {
 # ***** BUG:  ignores id  *****
 */
 
-void SPIbaud(void) {
-	int oldconfig, err;
-	unsigned int cn = *sp++, id = *sp++, baud = *sp++;
-	if (!check_chan(cn)) {flag = 0; return;}
+void
+SPIbaud (void)
+{
+  int oldconfig, err;
+  unsigned int cn = *sp++, id = *sp++, baud = *sp++;
+  if (!check_chan (cn))
+    {
+      flag = 0;
+      return;
+    }
 
-	if ( baud <= 187) spi[cn].baud = SPI_CLK_125KHZ;
-	else if (185 < baud && baud <= 375) spi[cn].baud = SPI_CLK_250KHZ;
-	else if (375 < baud && baud <= 750) spi[cn].baud = SPI_CLK_500KHZ;
-	else if (750 < baud && baud <= 1500) spi[cn].baud = SPI_CLK_1MHZ;
-	else if (1500 < baud && baud <= 3000) spi[cn].baud = SPI_CLK_2MHZ;
-	else if (3000 < baud && baud <= 6000) spi[cn].baud = SPI_CLK_4MHZ;
-	else if (6000 < baud) spi[cn].baud = SPI_CLK_8MHZ;
-	
-	if(!(err = sub_spi_config(spi[cn].sh, spi[cn].conf | spi[cn].baud, &oldconfig))) flag = 1;
-	else {
-		flag = 0;
-		strcpy(spierr, sub_strerror(err));
-		return;
-	}
+  if (baud <= 187)
+    spi[cn].baud = SPI_CLK_125KHZ;
+  else if (185 < baud && baud <= 375)
+    spi[cn].baud = SPI_CLK_250KHZ;
+  else if (375 < baud && baud <= 750)
+    spi[cn].baud = SPI_CLK_500KHZ;
+  else if (750 < baud && baud <= 1500)
+    spi[cn].baud = SPI_CLK_1MHZ;
+  else if (1500 < baud && baud <= 3000)
+    spi[cn].baud = SPI_CLK_2MHZ;
+  else if (3000 < baud && baud <= 6000)
+    spi[cn].baud = SPI_CLK_4MHZ;
+  else if (6000 < baud)
+    spi[cn].baud = SPI_CLK_8MHZ;
+
+  if (!
+      (err =
+       sub_spi_config (spi[cn].sh, spi[cn].conf | spi[cn].baud, &oldconfig)))
+    flag = 1;
+  else
+    {
+      flag = 0;
+      strcpy (spierr, sub_strerror (err));
+      return;
+    }
 }
-	
+
 /*
 # chan id odata SPIx yields idata
 #
@@ -210,48 +272,66 @@ void SPIbaud(void) {
 
 // The canonical ordering for Boolean algebras
 // See your favorite Lattice Theory text for details
-#define entails(X, Y)  (((X) & (Y)) == (X)) 
+#define entails(X, Y)  (((X) & (Y)) == (X))
 
 // We need to chunk/unchunk data from 8 byte pieces
-char * chunk(cell odata, int sz) {
-	char * out = malloc(sizeof(char)*sz);
-	int i = 0;
-	while (sz > 0) out[--sz] = (odata >> (8*i++)) & 0xFF;
-	return out;
+char *
+chunk (cell odata, int sz)
+{
+  char *out = malloc (sizeof (char) * sz);
+  int i = 0;
+  while (sz > 0)
+    out[--sz] = (odata >> (8 * i++)) & 0xFF;
+  return out;
 }
 
-cell unchunk( char * in, int sz) {
-	cell idata = 0;
-	int i;
-	for(i = 0; i < sz; i++) idata = (idata << 8*i) | in[i];
-	return idata;
+cell
+unchunk (char *in, int sz)
+{
+  cell idata = 0;
+  int i;
+  for (i = 0; i < sz; i++)
+    idata = (idata << 8 * i) | in[i];
+  return idata;
 }
 
-void SPIx(void) {
-	unsigned int cn = *sp++, id = *sp++;
-	cell odata = *sp++, idata;
-	char * out, * in;
-	int sz, err;
-	if (!check_chan(cn)) {flag = 0; return;}
+void
+SPIx (void)
+{
+  unsigned int cn = *sp++, id = *sp++;
+  cell odata = *sp++, idata;
+  char *out, *in;
+  int sz, err;
+  if (!check_chan (cn))
+    {
+      flag = 0;
+      return;
+    }
 
-	// We cannot write if we are in slave mode
-	if (entails(SPI_SLAVE, spi[cn].conf)) {
-		flag = 0;
-		sprintf(spierr, "Channel %d is in slave mode, cannot write", cn);
-		return;
-	}
+  // We cannot write if we are in slave mode
+  if (entails (SPI_SLAVE, spi[cn].conf))
+    {
+      flag = 0;
+      sprintf (spierr, "Channel %d is in slave mode, cannot write", cn);
+      return;
+    }
 
-	sz = spi[cn].bits/8 + 1;
-	out = chunk(odata, sz); // Chunk data into 8-bit chunks
-	in = malloc(sizeof(char)*sz);
-	if(!(err = sub_spi_transfer(spi[cn].sh, out, in, sz, SS_CONF(id,SS_LO)))) { 
-		flag = 1;
-		*sp-- = unchunk(out, sz); // Inverse of chunk
-	} else {
-		flag = 0;
-		strcpy(spierr, sub_strerror(err));
-	}
-	free(in); free(out);
+  sz = spi[cn].bits / 8 + 1;
+  out = chunk (odata, sz);	// Chunk data into 8-bit chunks
+  in = malloc (sizeof (char) * sz);
+  if (!
+      (err = sub_spi_transfer (spi[cn].sh, out, in, sz, SS_CONF (id, SS_LO))))
+    {
+      flag = 1;
+      *sp-- = unchunk (out, sz);	// Inverse of chunk
+    }
+  else
+    {
+      flag = 0;
+      strcpy (spierr, sub_strerror (err));
+    }
+  free (in);
+  free (out);
 }
 
 /*
@@ -260,30 +340,44 @@ void SPIx(void) {
 # Grabs the serial number (in HEX) from the indicated channel (a xdimax SUB20 device)
 */
 
-void SPIsn(void) {
+void
+SPIsn (void)
+{
   unsigned int cn = *sp++;
   unsigned int sn;
   char buf[64];
-  if (!check_chan(cn)) {flag = 0; return;}
-  if (sub_get_serial_number(spi[cn].sh, buf, sizeof(buf))){
-    flag = 1;
-    sscanf(buf, "%x", &sn);
-    *--sp = sn;
-  } else flag = 0;
+  if (!check_chan (cn))
+    {
+      flag = 0;
+      return;
+    }
+  if (sub_get_serial_number (spi[cn].sh, buf, sizeof (buf)))
+    {
+      flag = 1;
+      sscanf (buf, "%x", &sn);
+      *--sp = sn;
+    }
+  else
+    flag = 0;
 }
-	
+
 /* My Initializer */
-void __attribute__((constructor)) mod_init(void) {
-  SPIchan_init(); // Initialize the channels
+void __attribute__ ((constructor)) mod_init (void)
+{
+  SPIchan_init ();		// Initialize the channels
   // Broken; sub_find_device is not implemented correctly!!!
   //build_primitive( SPIchan_clear , "SPIchan_clear" );
   //build_primitive( SPIchan_init , "SPIchan_init" );
-  build_primitive( SPIinit , "SPIinit" );
-  build_primitive( SPIbaud , "SPIbaud" );
-  build_primitive( SPIx , "SPIx" );
-  build_primitive( SPIerror , "SPIerror" );
-  build_primitive( SPIsn , "SPIsn" );
+  build_primitive (SPIinit, "SPIinit");
+  build_primitive (SPIbaud, "SPIbaud");
+  build_primitive (SPIx, "SPIx");
+  build_primitive (SPIerror, "SPIerror");
+  build_primitive (SPIsn, "SPIsn");
 }
-	
+
 /* Test function for LSE Module */
-int lse_mod_test(void) { return 1; }
+int
+lse_mod_test (void)
+{
+  return 1;
+}
