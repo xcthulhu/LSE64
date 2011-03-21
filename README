@@ -64,6 +64,10 @@ To compile the Xdimax SUB20 USB-SPI microcontroller module, you will need to ins
 
    > sudo apt-get install libusb-1.0-dev
 
+It is may be necessary to enforce that you have permission to access the device.  Under the assumption that the user is part of the plugdev group, and the xdimax is plugged in, we can grant the user permission to access the xdimax device by issuing the following command:
+
+   > sudo chgrp -R plugdev /dev/bus/usb/
+
 4. COMEDI Support
 
 To compile support for the comedi module, you will need to install developer support for comedi:
