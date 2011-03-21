@@ -34,7 +34,6 @@ void SPIerror(void) {
 	printf("%s\n",spierr);
 }
 
-
 /*
 # In the following:
 # chan is the SPI channel number on the local SPI interface
@@ -62,48 +61,47 @@ typedef struct {
 */
 
 static channel * spi = NULL;
-static int max_chan = 0;
+static int chanN = 0;
 
 void SPIchan_clear(void) {
-	int i;
-	if (spi != NULL) {
-		for(i = 0; i < max_chan; i++) sub_close(spi[i].sh);
-		free(spi);
-		max_chan = 0;
-		spi = NULL;
-	}
+  if (spi != NULL) {
+    int i;
+    for(i = 0; i < chanN; i++) sub_close(spi[i].sh);
+    free(spi);
+  }
+  chanN = 0;
+  spi = NULL;
 }
 
 void SPIchan_init(void) {
-	struct usb_device* dev;
-	flag = 0;
+  struct usb_device* dev = NULL;
+  flag = 0;
+  // If necessary, clear the channels, free the memory
+  SPIchan_clear();
 
-	// If necessary, clear the channels, free the memory
-	SPIchan_clear();
-
-	// Try to detect devices for channels and open
-	while(dev = sub_find_devices(dev)) {
-	  spi = (channel *) realloc(spi,(max_chan+1)*sizeof(channel));
-	  spi[max_chan].sh = sub_open(dev);
-	  if (!spi[max_chan].sh) {
-	    SPIchan_clear();
-	    strcpy(spierr, sub_strerror(sub_errno));
-	    return;
-	  }
-	  spi[max_chan].conf = 0;
-	  spi[max_chan].bits = 0;
-	  spi[max_chan].baud = 0;
-	  max_chan += 1;
-	}
-	flag = 1;
+  // Try to detect devices for channels and open
+  while(dev = sub_find_devices(dev)) {
+    spi = (channel *) realloc(spi,(chanN+1)*sizeof(channel));
+    spi[chanN].sh = sub_open(dev);
+    if (!spi[chanN].sh) {
+      SPIchan_clear();
+      strcpy(spierr, sub_strerror(sub_errno));
+      return;
+    }
+    spi[chanN].conf = 0;
+    spi[chanN].bits = 0;
+    spi[chanN].baud = 0;
+    chanN += 1;
+  }
+  flag = 1;
 }
 
 
 // We will commonly want to check whether we can access a channel before trying
 int check_chan(int cn) {
 	if (spi == NULL) { strcpy(spierr, "Channels uninitialized"); return 0; }
-	if (cn < max_chan) { 
-		sprintf(spierr, "Channel %d out of range (MAX VALUE: %d)", cn, max_chan - 1); 
+	if (cn >= chanN) { 
+		sprintf(spierr, "Channel %d out of range (MAX VALUE: %d)", cn, chanN - 1); 
 		return 0; }
 	if (spi[cn].sh == NULL) { 
 		sprintf(spierr, "Device for channel %d not open", cn); 
@@ -263,25 +261,28 @@ void SPIx(void) {
 */
 
 void SPIsn(void) {
-	unsigned int cn = *sp++;
-	char buf[64];
-	if (!check_chan(cn)) {flag = 0; return;}
-	if (sub_get_serial_number(spi[cn].sh, buf, sizeof(buf))) {
-		flag = 1;
-		sscanf(buf,"%x",(unsigned int *) sp--);
-	} else flag = 0;
+  unsigned int cn = *sp++;
+  unsigned int sn;
+  char buf[64];
+  if (!check_chan(cn)) {flag = 0; return;}
+  if (sub_get_serial_number(spi[cn].sh, buf, sizeof(buf))){
+    flag = 1;
+    sscanf(buf, "%x", &sn);
+    *--sp = sn;
+  } else flag = 0;
 }
 	
 /* My Initializer */
 void __attribute__((constructor)) mod_init(void) {
-	SPIchan_init(); // Initialize the channels
-        build_primitive( SPIchan_clear , "SPIchan_clear" );
-        build_primitive( SPIchan_init , "SPIchan_init" );
-        build_primitive( SPIinit , "SPIinit" );
-        build_primitive( SPIbaud , "SPIbaud" );
-        build_primitive( SPIx , "SPIx" );
-        build_primitive( SPIsn , "SPIsn" );
-        build_primitive( SPIerror , "SPIerror" );
+  SPIchan_init(); // Initialize the channels
+  // Broken; sub_find_device is not implemented correctly!!!
+  //build_primitive( SPIchan_clear , "SPIchan_clear" );
+  //build_primitive( SPIchan_init , "SPIchan_init" );
+  build_primitive( SPIinit , "SPIinit" );
+  build_primitive( SPIbaud , "SPIbaud" );
+  build_primitive( SPIx , "SPIx" );
+  build_primitive( SPIerror , "SPIerror" );
+  build_primitive( SPIsn , "SPIsn" );
 }
 	
 /* Test function for LSE Module */
