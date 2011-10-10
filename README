@@ -62,7 +62,7 @@ You can install it globally using the usual command
 
 To compile the Xdimax SUB20 USB-SPI microcontroller module, you will need to install developer support for libusb-1.0:
 
-   > sudo apt-get install libusb-dev
+   > sudo apt-get install libusb-1.0-0-dev
 
 It is may be necessary to enforce that you have permission to access the device.  Under the assumption that the user is part of the plugdev group, and the xdimax is plugged in, we can grant the user permission to access the xdimax device by issuing the following command:
 
